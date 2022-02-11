@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <linux/i2c-dev.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 #define I2C_BUS        "/dev/i2c-1" // I2C bus device on a Raspberry Pi 3
 #define I2C_ADDR       0x27         // I2C slave address for the LCD module
@@ -47,32 +48,54 @@
 int lcd_backlight;
 int debug;
 char address;
-int i2cFile;
+//int i2cFile;
 
-void i2c_start() {
-   if((i2cFile = open(I2C_BUS, O_RDWR)) < 0) {
-      printf("Error failed to open I2C bus [%s].\n", I2C_BUS);
-      exit(-1);
-   }
-   // set the I2C slave address for all subsequent I2C device transfers
-   if (ioctl(i2cFile, I2C_SLAVE, I2C_ADDR) < 0) {
-      printf("Error failed to set I2C address [%s].\n", I2C_ADDR);
-      exit(-1);
-   }
+/**
+ * @brief lcd_init  intitialize the i2c device for the lcd
+ * @param i2c_dev
+ * @return the file descriptor of the lcd i2c device on success, returne error code on fail.
+ */
+int32_t lcd_init(const char * i2c_dev)
+{
+    int32_t ret = 0;
+    int32_t i2c_file = open(i2c_dev, O_RDWR);
+    if(i2c_file <0)
+    {
+        perror("lcd_init_open:");
+        return i2c_file;
+    }
+
+    ret = ioctl(i2c_file, I2C_SLAVE, I2C_ADDR);
+    if(ret < 0)
+    {
+        perror("[lcd_init_ioctl]:");
+        return ret;
+    }
+
+    return i2c_file;
 }
 
-void i2c_stop() { close(i2cFile); }
-
-void i2c_send_byte(unsigned char data) {
-   unsigned char byte[1];
-   byte[0] = data;
-   if(debug) printf(BINARY_FORMAT, BYTE_TO_BINARY(byte[0]));
-   write(i2cFile, byte, sizeof(byte));
-   /* -------------------------------------------------------------------- *
-    * Below wait creates 1msec delay, needed by display to catch commands  *
-    * -------------------------------------------------------------------- */
-   usleep(1000);
+/**
+ * @brief lcd_close     close lcd file descriptor
+ * @param lcd_fd        the lcd i2c file descriptor
+ * @return              N/A
+ */
+int32_t lcd_close(int32_t lcd_fd)
+{
+    return close(lcd_fd);
 }
+
+
+//void i2c_send_byte(unsigned char data) {
+//   unsigned char byte[1];
+//   byte[0] = data;
+//   if(debug) printf(BINARY_FORMAT, BYTE_TO_BINARY(byte[0]));
+//   write(i2cFile, byte, sizeof(byte));
+//   /* -------------------------------------------------------------------- *
+//    * Below wait creates 1msec delay, needed by display to catch commands  *
+//    * -------------------------------------------------------------------- */
+//   usleep(1000);
+//}
 
 //void main() {
 //   i2c_start();
