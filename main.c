@@ -7,11 +7,12 @@ int main()
     if(i2c_fd > 0)
     {
         lcd_clear(i2c_fd);
-        lcd_puts("Hello",LCD_L1);
-        lcd_puts("Hello",LCD_L2);
-        lcd_puts("Hello",LCD_L3);
-        lcd_puts("Hello",LCD_L4);
-        lcd_puts("Hel",LCD_L1);
+        lcd_puts(i2c_fd, "Hello",LCD_L1);
+        lcd_puts(i2c_fd, "Hello",LCD_L2);
+        lcd_puts(i2c_fd, "Hello",LCD_L3);
+        lcd_puts(i2c_fd, "Hello",LCD_L4);
+        lcd_puts(i2c_fd, "Hel",LCD_L1);
+//        lcd_clear(i2c_fd);
 
 
     }

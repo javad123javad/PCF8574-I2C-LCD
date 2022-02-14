@@ -40,12 +40,12 @@ static int i2cFile;
  * @param byte  The command to be writen in the IR register
  * @return On success: number of bytes written, On failure: error code
  */
-static int32_t write_cmd(const  uint8_t byte)
+static int32_t write_cmd(const int32_t i2c_fd, const  uint8_t byte)
 {
     ssize_t ret = 0;
     uint8_t data[1]={byte | 0x04};
 
-    ret = write(i2cFile,data,sizeof (data));
+    ret = write(i2c_fd,data,sizeof (data));
     if(ret < 0)
     {
         perror("[write_cmd--->write]:");
@@ -54,7 +54,7 @@ static int32_t write_cmd(const  uint8_t byte)
 
     usleep(1000);
     data[0] = byte | 0x00;
-    ret += write(i2cFile,data,sizeof (data));
+    ret += write(i2c_fd,data,sizeof (data));
     usleep(500);
     return ret;
 }
@@ -64,12 +64,12 @@ static int32_t write_cmd(const  uint8_t byte)
  * @param c
  * @return
  */
-static int32_t lcd_write_data(const uint8_t data)
+static int32_t lcd_write_data(const int32_t lcd_fd, const uint8_t data)
 {
     int32_t ret = 0;
     uint8_t buf[1]={(uint8_t)(data<<4) | 0x0D};
 
-    ret = write(i2cFile,buf,sizeof (buf));
+    ret = write(lcd_fd,buf,sizeof (buf));
     if(ret < 0)
     {
         perror("[lcd_write_data-->open]:");
@@ -78,7 +78,7 @@ static int32_t lcd_write_data(const uint8_t data)
 
     usleep(400);
     buf[0] = (uint8_t)((data<<4) | 0x09);
-    ret  += write(i2cFile,buf,sizeof (buf));
+    ret  += write(lcd_fd,buf,sizeof (buf));
     usleep(400);
 
     return  ret;
@@ -108,20 +108,20 @@ int32_t lcd_init(const char * i2c_dev, const uint16_t dev_addr)
     i2cFile = i2c_file;
 
     // first init in 8 bit mode
-    write_cmd(LCD_8bit);
-    write_cmd(LCD_8bit);
-    write_cmd(LCD_8bit);
+    write_cmd(i2c_file, LCD_8bit);
+    write_cmd(i2c_file, LCD_8bit);
+    write_cmd(i2c_file, LCD_8bit);
     // then in 4 bit mode
-    write_cmd(LCD_4bit);
-    write_cmd(LCD_4bit);
+    write_cmd(i2c_file, LCD_4bit);
+    write_cmd(i2c_file, LCD_4bit);
     // setup lines and char sizes
-    write_cmd(LCD_2X5x8);
+    write_cmd(i2c_file, LCD_2X5x8);
     //off
-    write_cmd(LCD_LSB);
-    write_cmd(LCD_2X5x8);
+    write_cmd(i2c_file, LCD_LSB);
+    write_cmd(i2c_file, LCD_2X5x8);
 
-    write_cmd(LCD_LSB);
-    write_cmd(LCD_MODE_INC | LCD_SHIFT_ON|LCD_DISP_ON);
+    write_cmd(i2c_file, LCD_LSB);
+    write_cmd(i2c_file, LCD_MODE_INC | LCD_SHIFT_ON|LCD_DISP_ON);
 
     return i2c_file;
 }
@@ -138,56 +138,83 @@ int32_t lcd_close(int32_t lcd_fd)
 
 
 /**
- * @brief lcd_clear
- * @param lcd_fd
- * @return
+ * @brief lcd_clear Clears the whole LCD
+ * @param lcd_fd    lcd_i2c file descriptor
+ * @return          Error code on Failure.
  */
 int32_t lcd_clear(int32_t lcd_fd)
 {
-    if (lcd_fd < 0)
+    int32_t ret = 0;
+
+    ret = write_cmd(lcd_fd, LCD_LSB);
+    if ( ret < 0)
     {
-        return -1;
+        return ret;
+    }
+    ret = write_cmd(lcd_fd, LCD_CLR);
+    return ret;
+}
+
+/**
+ * @brief lcd_putc
+ * @param lcd_fd    lcd i2c file descriptor
+ * @param c         charactor to display on LCD
+ * @return          On success: number of bytes written, On failure: error code
+ */
+int32_t lcd_putc(const int32_t lcd_fd, const char c)
+{
+    int32_t ret = 0;
+
+    ret = lcd_write_data(lcd_fd, c >>4);
+    if(ret < 0)
+    {
+        return ret;
     }
 
-
-//    write_cmd(LCD_LSB);
-//    write_cmd(LCD_CLR);
-
-//    write_cmd(LCD_LSB);
-//    write_cmd(LCD_CUR_ON|LCD_BLINK_ON|LCD_DISP_ON);
-
-//    write_cmd(LCD_LSB);
-//    write_cmd(LCD_CLR);
-
-
+    ret = lcd_write_data(lcd_fd, c&0x0F);
+    return ret;
 }
 
-int32_t lcd_putc(const char c)
+/**
+ * @brief lcd_puts  print string on the LCD
+ * @param lcd_fd    lcd ic2 file descriptor
+ * @param str       string to be written on the LCD
+ * @param lcd_line  the line number where the LCD should be displayed. (LCD_L1, LCD_L2, etc...)
+ * @return          On success: Positive value, On Failure: Error code.
+ */
+int32_t lcd_puts(const int32_t lcd_fd, const char *const str,uint8_t lcd_line)
 {
-    int8_t n1 = c >>4;
-    int8_t n2 = c&0x0F;
-    fprintf(stderr,"%d:%d\n",n1,n2);
-
-
-    lcd_write_data(n1);
-    lcd_write_data(n2);
-
-
-}
-
-int32_t lcd_puts(const char *const str,uint8_t lcd_line)
-{
-    lcd_go_line(lcd_line);
+    int32_t ret = 0;
+    ret = lcd_go_line(lcd_fd, lcd_line);
+    if(ret < 0)
+    {
+        return ret;
+    }
 
     for(size_t i = 0; isprint(str[i]); i++)
     {
-        lcd_putc(str[i]);
+        ret = lcd_putc(lcd_fd, str[i]);
+        if(ret < 0)
+            break;
     }
+    return ret;
 }
 
-int32_t lcd_go_line(const uint8_t lcd_line)
+/**
+ * @brief lcd_go_line   Place the cursor on the specified line
+ * @param lcd_fd        i2c lcd file descriptor
+ * @param lcd_line      The Line number (LCD_L1, LCD_L2, etc...)
+ * @return              On success: Positive value, On Failure: Error code.
+ */
+int32_t lcd_go_line(const int32_t lcd_fd, const uint8_t lcd_line)
 {
-    write_cmd(lcd_line);
-    write_cmd(0x00);
+    int32_t ret = 0;
+    ret = write_cmd(lcd_fd, lcd_line);
+    if (ret < 0)
+    {
+        return ret;
+    }
 
+    ret = write_cmd(lcd_fd, 0x00);
+    return ret;
 }
