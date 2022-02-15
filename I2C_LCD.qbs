@@ -3,6 +3,7 @@ import qbs
 CppApplication {
     consoleApplication: true
     files: [
+        "README.md",
         "main.c",
         "pcf8574t_i2c.c",
         "pcf8574t_i2c.h",
