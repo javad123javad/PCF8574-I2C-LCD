@@ -1,20 +1,24 @@
-#ifndef PCF8574T_I2C_H
-#define PCF8574T_I2C_H
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
 /*******************************************************
+ * @Desc: PCF8574 I2C library
+ * @Author: Javad Rahimi (javad321javad@gmail.com)
+ * @Data: Feb,14,2022
+ *
  * PCF8574 pin map
  * P0 <---> RS
  * P1 <---> RW
  * P2 <---> E
+ * P3 <---> Back Light
  * P4 <---> D4
  * P5 <---> D5
  * P6 <---> D6
  * P7 <---> D7
  *
- *
- */
+ ********************************************************/
+#ifndef PCF8574T_I2C_H
+#define PCF8574T_I2C_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 typedef enum _LCD_CMD{
     LCD_4bit        = 0x20,
